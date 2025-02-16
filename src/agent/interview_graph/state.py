@@ -56,5 +56,6 @@ class InterviewState(MessagesState):
             return super().get(key, Analyst())
         return super().get(key, default)
 
-class OutputState(TypedDict):
-    sections: list[str]
+
+class OutputState(MessagesState):
+    pass

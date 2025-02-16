@@ -16,7 +16,7 @@ from langchain_core.messages import (
 )
 from langchain_core.output_parsers import StrOutputParser
 
-from agent.interview_graph.state import InterviewState, Analyst, SearchQuery, OutputState
+from agent.interview_graph.state import InterviewState, Analyst, SearchQuery,OutputState
 from agent.interview_graph.configuration import InterviewConfiguration
 from shared.retrieval import WebRetriever, WikipediaRetriever
 
@@ -155,10 +155,11 @@ def write_section(state: InterviewState, *, config: RunnableConfig = None):
     ]) 
                 
     # Append it to state
-    return {"sections": [section.content]}
+    # return {"sections": [section.content]}
+    return {"messages": [section.content]}
 
 # Add nodes and edges 
-interview_builder = StateGraph(InterviewState,  input=InterviewState, output=OutputState)
+interview_builder = StateGraph(InterviewState, input=InterviewState, output=OutputState)
 interview_builder.add_node("ask_question", generate_question)
 interview_builder.add_node("search_web", search_web)
 interview_builder.add_node("search_wikipedia", search_wikipedia)
