@@ -45,6 +45,67 @@ class WikipediaRetriever:
         from langchain_community.document_loaders import WikipediaLoader
         return WikipediaLoader(query=query, load_max_docs=self.max_docs).load()
 
+class StockRetriever:
+    """Stock data retriever using Alpha Vantage and Finnhub."""
+    
+    def __init__(self):
+        self.alpha_vantage_key = None
+        self.finnhub_key = None
+        
+    def _get_keys(self, config: RunnableConfig = None):
+        """Get API keys from configuration."""
+        from agent.interview_graph.configuration import InterviewConfiguration
+        
+        if config:
+            configuration = InterviewConfiguration.from_runnable_config(config)
+            self.alpha_vantage_key = configuration.alpha_vantage_key
+            self.finnhub_key = configuration.finnhub_key
+    
+    def get_stock_data(self, symbol: str) -> dict:
+        """Get stock data from Alpha Vantage."""
+        # Mock data for now
+        return {
+            "symbol": symbol,
+            "current_price": 150.00,
+            "daily_change": 2.5,
+            "volume": 1000000,
+            "market_cap": 2000000000,
+            "company_overview": f"Mock company overview for {symbol}",
+            "financial_metrics": {
+                "pe_ratio": 20.5,
+                "eps": 7.5,
+                "revenue": 1000000000
+            },
+            "confidence": 0.8
+        }
+    
+    def get_market_sentiment(self, symbol: str) -> dict:
+        """Get market sentiment data from Finnhub."""
+        # Mock data for now
+        return {
+            "symbol": symbol,
+            "market_analysis": f"Mock market analysis for {symbol}",
+            "sentiment_summary": "Bullish",
+            "risks": ["Market Risk 1", "Market Risk 2"],
+            "confidence": 0.75
+        }
+    
+    def get_technical_indicators(self, symbol: str) -> dict:
+        """Get technical indicators from Alpha Vantage."""
+        # Mock data for now
+        return {
+            "symbol": symbol,
+            "indicators": {
+                "rsi": 65,
+                "macd": "bullish",
+                "sma_20": 145.00,
+                "sma_50": 140.00
+            },
+            "analysis": f"Mock technical analysis for {symbol}",
+            "risks": ["Technical Risk 1", "Technical Risk 2"],
+            "confidence": 0.7
+        }
+
 ## Encoder constructors
 
 

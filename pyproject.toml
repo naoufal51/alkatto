@@ -25,7 +25,11 @@ dependencies = [
     "pydantic-settings>=2.7.1",
     "pydantic_core>=2.27.2",
     "typing_extensions==4.12.2",
-    "wikipedia>=1.4.0"
+    "wikipedia>=1.4.0",
+    "yfinance>=0.2.35",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "nano-vectordb>=0.0.4.3"
 ]
 
 

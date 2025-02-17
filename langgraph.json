@@ -1,7 +1,8 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "agent": "src/agent/interview_graph/graph.py:graph"
+    "agent": "src/agent/interview_graph/graph.py:graph",
+    "agent2": "src/agent/analyst_graph/graph.py:graph"
   },
   "env": ".env"
 }

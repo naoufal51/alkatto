@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 from shared.utils import (
     format_docs, 
     load_chat_model,
@@ -15,168 +15,134 @@ from langchain_core.messages import (
     get_buffer_string
 )
 from langchain_core.output_parsers import StrOutputParser
+from langgraph.graph import MessagesState
 
-from agent.interview_graph.state import InterviewState, Analyst, SearchQuery,OutputState
+from agent.interview_graph.state import MessagesState
 from agent.interview_graph.configuration import InterviewConfiguration
-from shared.retrieval import WebRetriever, WikipediaRetriever
+from shared.retrieval import WebRetriever, StockRetriever
+from langgraph.checkpoint.memory import MemorySaver
+import json
+import numpy as np
+from datetime import datetime
+from agent.interview_graph.financial.graph import financial_app
+from agent.interview_graph.general.graph import general_app
+from agent.interview_graph.market.graph import market_app
 
-def generate_question(state: InterviewState, *, config: RunnableConfig = None):
-    """ Node to generate a question """
-    # Use default analyst if none provided
-    analyst = state.get("analyst", Analyst.get_default())
-    messages = state["messages"]
-    
+from agent.interview_graph.utils import (
+    calculate_confidence_score,
+    generate_executive_summary,
+    combine_risk_analysis
+)
+
+def classify_question(state: MessagesState):
+    """Classify if the question is financial, market, or general."""
+    messages = state.get("messages", [])
+    if not messages:
+        return "general_question"
+
     # Get configuration and LLM
-    configuration = InterviewConfiguration.from_runnable_config(config)
-    llm = load_chat_model(configuration.query_model)
+    configuration = InterviewConfiguration.from_runnable_config(None)
+    llm = load_chat_model(configuration.classification_model)
+
+    # Get the last message content
+    last_message = messages[-1].content if messages else ""
+
+    # Classify the question
+    system_message = SystemMessage(content="""Classify this question into one of these categories. Be very specific in distinguishing between financial and market questions:
+
+FINANCIAL questions focus on:
+- Stock prices, technical analysis, and trading
+- Company financial metrics (P/E ratio, EPS, revenue, profit margins)
+- Financial statements and accounting
+- Investment analysis and portfolio management
+- Dividend policies and stock splits
+- Company-specific financial performance
+- Valuation metrics and methodologies
+
+MARKET questions focus on:
+- Industry/sector analysis and trends
+- Competitive landscape and market share
+- Market size and growth projections
+- Consumer behavior and preferences
+- Market entry strategies
+- Geographic market differences
+- Product market fit
+- Market segmentation
+- Industry regulations and policies
+- Innovation and disruption in markets
+- Supply chain and distribution analysis
+
+GENERAL questions:
+- Any question not specifically about financial metrics or market analysis
+- General knowledge, facts, history
+- Technology explanations
+- Company history or background
+- Product features or specifications
+- News and current events
+- How-to questions
+
+Return EXACTLY one of these words: 'financial_question', 'market_question', or 'general_question'""")
     
-    # Generate question 
-    system_message = SystemMessage(content=configuration.question_instructions.format(goals=analyst.persona))
-    question = llm.invoke([system_message] + messages)
+    classification = llm.invoke([system_message, HumanMessage(content=last_message)])
+
+    return classification.content.strip()
+
+def route_messages(state: MessagesState, name: str = "expert"):
+    """Route between financial, market, and general knowledge questions."""
+    if not state["messages"]:
+        return END
         
-    # Write messages to state
-    return {"messages": [question]}
-
-def search_web(state: InterviewState, *, config: RunnableConfig = None):
-    """ Retrieve docs from web search """
-    # Get configuration and LLM
-    configuration = InterviewConfiguration.from_runnable_config(config)
-    llm = load_chat_model(configuration.query_model)
+    # Classify the question
+    question_type = classify_question(state)
     
-    # Search query
-    structured_llm = llm.with_structured_output(SearchQuery)
-    search_query = structured_llm.invoke([SystemMessage(content=configuration.search_instructions)] + state['messages'])
-    
-    # Search
-    retriever = WebRetriever(max_results=3)
-    search_docs = retriever.search(search_query.search_query, config=config)
-    formatted_search_docs = format_docs(search_docs)
+    # Route based on classification
+    if question_type == "financial_question":
+        return "handle_financial"
+    elif question_type == "market_question":
+        return "handle_market"
+    else:
+        return "handle_general"
 
-    return {"context": [formatted_search_docs]} 
+def handle_financial(state: MessagesState, *, config: RunnableConfig = None):
+    """Handle financial questions using the financial subgraph."""
+    return financial_app.invoke(state)
 
-def search_wikipedia(state: InterviewState, *, config: RunnableConfig = None):
-    """ Retrieve docs from wikipedia """
-    # Get configuration and LLM
-    configuration = InterviewConfiguration.from_runnable_config(config)
-    llm = load_chat_model(configuration.query_model)
-    
-    # Search query
-    structured_llm = llm.with_structured_output(SearchQuery)
-    search_query = structured_llm.invoke([SystemMessage(content=configuration.search_instructions)] + state['messages'])
-    
-    # Search
-    retriever = WikipediaRetriever(max_docs=2)
-    search_docs = retriever.search(search_query.search_query)
-    formatted_search_docs = format_docs(search_docs)
+def handle_market(state: MessagesState, *, config: RunnableConfig = None):
+    """Handle market questions using the market subgraph."""
+    return market_app.invoke(state)
 
-    return {"context": [formatted_search_docs]} 
+def handle_general(state: MessagesState, *, config: RunnableConfig = None):
+    """Handle general knowledge questions using the general subgraph."""
+    return general_app.invoke(state)
 
-def generate_answer(state: InterviewState, *, config: RunnableConfig = None):
-    """ Node to answer a question """
-    analyst = state.get("analyst", Analyst())  # Use get with default
-    messages = state["messages"]
-    context = state["context"]
+checkpointer = MemorySaver()
 
-    # Get configuration and LLM
-    configuration = InterviewConfiguration.from_runnable_config(config)
-    llm = load_chat_model(configuration.response_model)
-    
-    # Answer question
-    system_message = SystemMessage(content=configuration.answer_instructions.format(goals=analyst.persona, context=context))
-    answer = llm.invoke([system_message] + messages)
-            
-    # Name the message as coming from the expert
-    answer.name = "expert"
-    
-    # Append it to state
-    return {"messages": [answer]}
+router = StateGraph(MessagesState)
 
-# def save_interview(state: InterviewState):
-#     """ Save interviews """
-#     messages = state["messages"]
-#     interview = "\n".join(f"{m.role}: {m.content}" for m in messages)
-#     return {"interview": interview}
+# Add nodes
+router.add_node("handle_financial", handle_financial)
+router.add_node("handle_market", handle_market)
+router.add_node("handle_general", handle_general)
 
-def save_interview(state: InterviewState):
-    
-    """ Save interviews """
+# Add conditional edges
+router.add_conditional_edges(
+    START,
+    route_messages,
+    {
+        "handle_financial": "handle_financial",
+        "handle_market": "handle_market",
+        "handle_general": "handle_general"
+    }
+)
 
-    # Get messages
-    messages = state["messages"]
-    
-    # Convert interview to a string
-    interview = get_buffer_string(messages)
-    
-    # Save to interviews key
-    return {"interview": interview}
+# Set the entry point
+# router.set_entry_point("root")
 
-def route_messages(state: InterviewState, 
-                   name: str = "expert"):
+# Add edges to end
+router.add_edge("handle_financial", END)
+router.add_edge("handle_market", END)
+router.add_edge("handle_general", END)
 
-    """ Route between question and answer """
-    
-    # Get messages
-    messages = state["messages"]
-    max_num_turns = state.get('max_num_turns',2)
-
-    # Check the number of expert answers 
-    num_responses = len(
-        [m for m in messages if isinstance(m, AIMessage) and m.name == name]
-    )
-
-    # End if expert has answered more than the max turns
-    if num_responses >= max_num_turns:
-        return 'save_interview'
-
-    # This router is run after each question - answer pair 
-    # Get the last question asked to check if it signals the end of discussion
-    last_question = messages[-2]
-    
-    if "Thank you so much for your help" in last_question.content:
-        return 'save_interview'
-    return "ask_question"
-
-def write_section(state: InterviewState, *, config: RunnableConfig = None):
-    """ Node to write a section """
-    interview = state["interview"]
-    context = state["context"]
-    # analyst = state["analyst"]
-    analyst = state.get("analyst", Analyst())
-   
-    # Get configuration and LLM
-    configuration = InterviewConfiguration.from_runnable_config(config)
-    llm = load_chat_model(configuration.response_model)
-    
-    # Write section using either the gathered source docs from interview (context) or the interview itself (interview)
-    system_message = SystemMessage(content=configuration.section_writer_instructions.format(focus=analyst.description))
-    section = llm.invoke([
-        system_message,
-        HumanMessage(content=f"Use this source to write your section: {context}")
-    ]) 
-                
-    # Append it to state
-    # return {"sections": [section.content]}
-    return {"messages": [section.content]}
-
-# Add nodes and edges 
-interview_builder = StateGraph(InterviewState, input=InterviewState, output=OutputState)
-interview_builder.add_node("ask_question", generate_question)
-interview_builder.add_node("search_web", search_web)
-interview_builder.add_node("search_wikipedia", search_wikipedia)
-interview_builder.add_node("answer_question", generate_answer)
-interview_builder.add_node("save_interview", save_interview)
-interview_builder.add_node("write_section", write_section)
-
-# Flow
-interview_builder.add_edge(START, "ask_question")
-interview_builder.add_edge("ask_question", "search_web")
-interview_builder.add_edge("ask_question", "search_wikipedia")
-interview_builder.add_edge("search_web", "answer_question")
-interview_builder.add_edge("search_wikipedia", "answer_question")
-interview_builder.add_conditional_edges("answer_question", route_messages,['ask_question','save_interview'])
-interview_builder.add_edge("save_interview", "write_section")
-interview_builder.add_edge("write_section", END)
-
-# Compile the interview graph
-graph = interview_builder.compile()
-graph.name = "InterviewGraph"
+# Compile the graph
+graph = router.compile(checkpointer=checkpointer)
+graph.name = "InterviewRouterGraph"
