@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field
 from .prompts import (
     MARKET_TRENDS_TEMPLATE,
     MARKET_SENTIMENT_TEMPLATE,
-    MARKET_REPORT_TEMPLATE
+    MARKET_REPORT_TEMPLATE,
+    QUALITY_CONTROL_TEMPLATE
 )
 
 class MarketConfiguration(BaseModel):
@@ -65,6 +66,15 @@ class MarketConfiguration(BaseModel):
     market_report_template: str = Field(
         default=MARKET_REPORT_TEMPLATE,
         description="Template for market report generation"
+    )
+
+    quality_control_model: str = Field(
+        default="gpt-4o-mini",
+        description="Model to use for quality control"
+    )
+    quality_control_template: str = Field(
+        default=QUALITY_CONTROL_TEMPLATE,
+        description="Template for quality control evaluation"
     )
 
     @classmethod

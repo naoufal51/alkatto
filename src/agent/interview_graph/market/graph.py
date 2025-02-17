@@ -99,6 +99,52 @@ Market Sentiment Analysis:
     return {"messages": report.content}
 
 
+def check_research_quality(state: MarketState, *, config: RunnableConfig = None):
+    """Evaluate if the research properly addresses the original query."""
+    messages = state["messages"]
+    
+    # Get configuration and LLM
+    configuration = MarketConfiguration.from_runnable_config(config)
+    llm = load_chat_model(configuration.quality_control_model)
+    
+    # Get the original query (from first message)
+    original_query = messages[0].content if messages else ""
+    
+    # Get the latest research report (from last message)
+    latest_report = messages[-1].content if len(messages) > 1 else ""
+    
+    # Generate quality assessment
+    system_message = SystemMessage(content=configuration.quality_control_template)
+    
+    assessment = llm.invoke([
+        system_message,
+        HumanMessage(content=f"""Original Query: {original_query}
+
+Research to Evaluate:
+{latest_report}""")
+    ])
+    
+    # Parse the evaluation results
+    evaluation = json.loads(assessment.content.strip())
+    
+    # Store the quality assessment in state
+    return {
+        "analysis": {
+            "quality_control": evaluation
+        }
+    }
+
+
+def needs_revision(state: MarketState) -> str:
+    """Determine if the research needs revision based on quality assessment."""
+    # Get quality control results
+    analysis = state.get("analysis", {})
+    quality_control = analysis.get("quality_control", {})
+    
+    # Check if research is approved
+    return "end" if quality_control.get("approved", False) else "revise_report"
+
+
 # Create the market analysis graph
 market_graph = StateGraph(MarketState)
 
@@ -106,17 +152,25 @@ market_graph = StateGraph(MarketState)
 market_graph.add_node("analyze_trends", analyze_market_trends)
 market_graph.add_node("analyze_sentiment", analyze_market_sentiment)
 market_graph.add_node("write_report", write_market_report)
+market_graph.add_node("check_quality", check_research_quality)
 
 # Add edges for the analysis flow
-market_graph.add_edge("analyze_trends", "write_report")
+market_graph.add_edge("analyze_trends", "analyze_sentiment")
 market_graph.add_edge("analyze_sentiment", "write_report")
+market_graph.add_edge("write_report", "check_quality")
 
-# Set entry point and conditional edges
-market_graph.set_entry_point("analyze_trends")
+# Add conditional edges for quality control
 market_graph.add_conditional_edges(
-    "analyze_trends",
-    lambda x: "analyze_sentiment"
+    "check_quality",
+    needs_revision,
+    {
+        "revise_report": "write_report",
+        "end": END
+    }
 )
+
+# Set entry point
+market_graph.set_entry_point("analyze_trends")
 
 # Compile the graph
 market_app = market_graph.compile()

@@ -145,4 +145,5 @@ router.add_edge("handle_general", END)
 
 # Compile the graph
 graph = router.compile(checkpointer=checkpointer)
+# graph = router.compile()
 graph.name = "InterviewRouterGraph"

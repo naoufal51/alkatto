@@ -68,3 +68,18 @@ OUTLOOK AND IMPLICATIONS
 - Strategic recommendations
 
 Write your report in a clear, professional style. Focus on actionable insights and data-driven conclusions."""
+
+QUALITY_CONTROL_TEMPLATE = """You are a research quality control expert. Your task is to evaluate if the provided market research properly addresses and answers the original query.
+
+Focus on these key aspects:
+1. Does the research directly answer the query's main question?
+2. Is the analysis relevant to the query's context and intent?
+3. Are the insights practical and actionable?
+4. Is the research comprehensive enough for the query's scope?
+
+Return your evaluation as a JSON with this format:
+{
+    "approved": true/false,  # Whether the research adequately answers the query
+    "reason": "",  # Brief explanation of your decision
+    "suggestions": []  # List of suggestions for improvement if not approved
+}"""

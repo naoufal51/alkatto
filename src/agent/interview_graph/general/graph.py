@@ -2,9 +2,9 @@
 
 from typing import Dict, Any, List
 import json
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, RemoveMessage
 from langchain_core.runnables import RunnableConfig
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END, START
 
 from shared.utils import load_chat_model
 from agent.interview_graph.configuration import InterviewConfiguration
@@ -50,6 +50,66 @@ def combine_results(state: GeneralState, *, config: RunnableConfig = None) -> Di
     all_results = web_results + wiki_results
     
     return {"context": all_results}
+
+def check_relevancy(state: GeneralState, *, config: RunnableConfig = None) -> Dict[str, Any]:
+    """Check if the combined search results are relevant to the query."""
+    messages = state["messages"]
+    context = state.get("context", [])
+    
+    # Get configuration and LLM
+    configuration = InterviewConfiguration.from_runnable_config(config)
+    llm = load_chat_model(configuration.analysis_model)
+    
+    # Get the original query (from first message)
+    original_query = messages[0].content if messages else ""
+    
+    # Format the search results for evaluation
+    search_results = "\n\n".join([
+        f"Source {i+1}:\n{result}" 
+        for i, result in enumerate(context)
+    ])
+    
+    # Generate relevancy assessment
+    system_message = SystemMessage(content="""You are a relevancy assessment expert. Your task is to evaluate if the provided search results are relevant to the original query.
+
+Focus on these aspects:
+1. Do the search results contain information that directly relates to the query?
+2. Are the results focused on the main topic of the query?
+3. Is the information useful for answering the query?
+
+Return your evaluation as a JSON with this format:
+{
+    "relevant": true/false,  # Whether the results are relevant to the query
+    "reason": "",  # Brief explanation of your decision
+    "suggestions": []  # List of suggestions for improving search if not relevant
+}""")
+    
+    assessment = llm.invoke([
+        system_message,
+        HumanMessage(content=f"""Original Query: {original_query}
+
+Search Results to Evaluate:
+{search_results}""")
+    ])
+    
+    # Parse the evaluation results
+    evaluation = json.loads(assessment.content.strip())
+    
+    # Store the relevancy assessment in state
+    return {
+        "analysis": {
+            "relevancy_check": evaluation
+        }
+    }
+
+def needs_new_search(state: GeneralState) -> str:
+    """Determine if we need to search again based on relevancy check."""
+    # Get relevancy check results
+    analysis = state.get("analysis", {})
+    relevancy_check = analysis.get("relevancy_check", {})
+    
+    # Check if results are relevant
+    return "analyze_results" if relevancy_check.get("relevant", False) else "search_web"
 
 def analyze_search_results(state: GeneralState, *, config: RunnableConfig = None) -> Dict[str, Any]:
     """Analyze and summarize search results."""
@@ -163,22 +223,33 @@ general_graph = StateGraph(GeneralState)
 
 # Add nodes
 general_graph.add_node("search_web", search_web)
-general_graph.add_node("search_wikipedia", search_wikipedia)
 general_graph.add_node("combine_results", combine_results)
+general_graph.add_node("check_relevancy", check_relevancy)
 general_graph.add_node("analyze_results", analyze_search_results)
 general_graph.add_node("write_article", write_general_article)
 
 # Add parallel edges for search
 general_graph.add_edge("search_web", "combine_results")
-general_graph.add_edge("search_wikipedia", "combine_results")
 
 # Add sequential edges for analysis and writing
-general_graph.add_edge("combine_results", "analyze_results")
+general_graph.add_edge("combine_results", "check_relevancy")
+general_graph.add_edge("check_relevancy", "analyze_results")
 general_graph.add_edge("analyze_results", "write_article")
+
+# Add conditional edges for relevancy check
+general_graph.add_conditional_edges(
+    "check_relevancy",
+    needs_new_search,
+    {
+        "analyze_results": "analyze_results",
+        "search_web": "search_web"
+    }
+)
+
+general_graph.add_edge("write_article", END)
 
 # Set multiple entry points for parallel execution
 general_graph.set_entry_point("search_web")
-general_graph.set_entry_point("search_wikipedia")
 
 # Compile the graph
 general_app = general_graph.compile()
