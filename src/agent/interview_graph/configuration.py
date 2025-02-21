@@ -102,6 +102,26 @@ class InterviewConfiguration(BaseConfiguration):
         default=prompts.CONFIDENCE_SCORING_INSTRUCTIONS,
         metadata={"description": "Instructions for confidence scoring"},
     )
+    research_analysis_instructions: str = field(
+        default=prompts.RESEARCH_ANALYSIS_INSTRUCTIONS,
+        metadata={"description": "Instructions for research paper analysis"},
+    )
+    research_summary_instructions: str = field(
+        default=prompts.RESEARCH_SUMMARY_INSTRUCTIONS,
+        metadata={"description": "Instructions for research summary generation"},
+    )
+    research_focus_instructions: str = field(
+        default=prompts.RESEARCH_FOCUS_INSTRUCTIONS,
+        metadata={"description": "Instructions for focusing research questions"},
+    )
+    research_query_instructions: str = field(
+        default=prompts.RESEARCH_QUERY_INSTRUCTIONS,
+        metadata={"description": "Instructions for generating arXiv search queries"},
+    )
+    research_confidence_scoring_instructions: str = field(
+        default=prompts.RESEARCH_CONFIDENCE_SCORING_INSTRUCTIONS,
+        metadata={"description": "Instructions for scoring research paper confidence"},
+    )
 
     # Financial Analysis Parameters
     stock_history_days: int = field(
@@ -135,6 +155,54 @@ class InterviewConfiguration(BaseConfiguration):
     include_charts: bool = field(
         default=True,
         metadata={"description": "Whether to include charts in financial articles"},
+    )
+
+    # Research Parameters
+    max_arxiv_results: int = field(
+        default=10,
+        metadata={"description": "Maximum number of arXiv papers to retrieve"},
+    )
+    arxiv_categories: list[str] = field(
+        default_factory=lambda: [
+            "cs.AI",    # Artificial Intelligence
+            "cs.LG",    # Machine Learning
+            "cs.CL",    # Computational Linguistics
+            "cs.CV",    # Computer Vision
+            "cs.NE",    # Neural and Evolutionary Computing
+            "cs.RO",    # Robotics
+            "cs.SE",    # Software Engineering
+            "quant-ph", # Quantum Computing
+            "stat.ML"   # Statistics - Machine Learning
+        ],
+        metadata={"description": "Default arXiv categories to search in"},
+    )
+    research_recency_days: int = field(
+        default=365,
+        metadata={"description": "Maximum age of research papers in days"},
+    )
+    min_citation_count: int = field(
+        default=5,
+        metadata={"description": "Minimum citation count for considering papers"},
+    )
+    include_preprints: bool = field(
+        default=True,
+        metadata={"description": "Whether to include preprints in search results"},
+    )
+    max_paper_length: int = field(
+        default=30,
+        metadata={"description": "Maximum paper length in pages to consider"},
+    )
+    citation_weight: float = field(
+        default=0.3,
+        metadata={"description": "Weight given to citation count in paper ranking"},
+    )
+    recency_weight: float = field(
+        default=0.4,
+        metadata={"description": "Weight given to paper recency in ranking"},
+    )
+    relevance_weight: float = field(
+        default=0.3,
+        metadata={"description": "Weight given to search relevance in ranking"},
     )
 
     # System Parameters

@@ -322,3 +322,154 @@ There should be no redundant sources. It should simply be:
 - Ensure the report follows the required structure
 - Include no preamble before the title of the report
 - Check that all guidelines have been followed"""
+
+# Research analysis prompts
+RESEARCH_ANALYSIS_INSTRUCTIONS = """Analyze research papers considering:
+1. Key findings and contributions
+- Novel theoretical contributions
+- Technical innovations
+- Empirical results
+- Methodological advances
+
+2. Methodology and approach
+- Research design
+- Data collection and analysis
+- Experimental setup
+- Validation methods
+
+3. Technical innovations
+- Novel algorithms or methods
+- Architectural improvements
+- Performance optimizations
+- Implementation details
+
+4. Experimental results
+- Quantitative metrics
+- Comparative analysis
+- Statistical significance
+- Benchmark performance
+
+5. Limitations and future work
+- Current constraints
+- Methodological limitations
+- Open challenges
+- Future research directions
+
+6. Impact on the field
+- Theoretical implications
+- Practical applications
+- Industry relevance
+- Research community impact
+
+Provide a comprehensive analysis that:
+- Maintains academic rigor
+- Highlights key technical details
+- Identifies research trends
+- Evaluates scientific merit
+- Assesses reproducibility
+"""
+
+# Research summary prompts
+RESEARCH_SUMMARY_INSTRUCTIONS = """Generate a research summary that:
+1. Synthesizes key findings from all papers
+- Identify common themes
+- Highlight major discoveries
+- Note conflicting results
+- Summarize consensus views
+
+2. Identifies common themes and patterns
+- Methodological trends
+- Shared challenges
+- Common assumptions
+- Recurring limitations
+
+3. Highlights methodological innovations
+- Novel approaches
+- Technical breakthroughs
+- Experimental designs
+- Analytical frameworks
+
+4. Discusses practical implications
+- Industry applications
+- Implementation considerations
+- Scalability aspects
+- Resource requirements
+
+5. Suggests future research directions
+- Open problems
+- Promising approaches
+- Potential improvements
+- Research opportunities
+
+6. Maintains academic rigor and clarity
+- Use precise terminology
+- Cite specific results
+- Maintain objectivity
+- Acknowledge limitations
+
+Structure the summary with:
+- Clear section headers
+- Logical flow of ideas
+- Technical accuracy
+- Accessible language
+
+Focus on making complex research accessible while preserving technical accuracy and academic rigor."""
+
+# Research-specific prompts
+RESEARCH_FOCUS_INSTRUCTIONS = """
+Based on the research question, identify the main research focus.
+Break down the query into:
+1. Core research area
+2. Specific topics or methodologies
+3. Relevant academic fields
+4. Time period of interest
+5. Key concepts to explore
+
+Focus on academic and scientific aspects of the query."""
+
+RESEARCH_QUERY_INSTRUCTIONS = """
+Generate an arXiv search query based on the research question.
+The query should:
+1. Use appropriate arXiv categories and fields
+2. Include relevant technical terminology
+3. Focus on specific research aspects
+4. Consider temporal relevance
+5. Use boolean operators when needed
+
+Example transformations:
+- "Latest developments in transformer models" -> "cat:cs.CL AND (transformer OR attention) AND title:model"
+- "Quantum computing error correction" -> "cat:quant-ph AND (error correction OR quantum error)"
+"""
+
+RESEARCH_CONFIDENCE_SCORING_INSTRUCTIONS = """Score research confidence based on:
+1. Paper quality and impact
+- Journal/conference reputation
+- Citation count
+- Author expertise
+- Peer review status
+
+2. Methodology robustness
+- Research design
+- Data quality
+- Statistical validity
+- Reproducibility
+
+3. Result reliability
+- Statistical significance
+- Sample size
+- Control measures
+- Validation methods
+
+4. Technical depth
+- Mathematical rigor
+- Implementation details
+- Experimental setup
+- Comparative analysis
+
+5. Temporal relevance
+- Publication date
+- Citation freshness
+- Technology currency
+- Field evolution
+
+Provide a score between 0.0 and 1.0 with detailed justification."""

@@ -9,17 +9,12 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
 dependencies = [
-    "langgraph>=0.2.6",
-    "langchain-openai>=0.1.22",
+    "langgraph>=0.2.74",
+    "langchain-openai>=0.3.6",
     "langchain-anthropic>=0.1.23",
-    "langchain>=0.2.14",
-    "langchain-fireworks>=0.1.7",
+    "langchain>=0.3.19",
     "python-dotenv>=1.0.1",
-    "langchain-elasticsearch>=0.2.2,<0.3.0",
-    "langchain-pinecone>=0.1.3,<0.2.0",
-    "msgspec>=0.18.6",
-    "langchain-mongodb>=0.1.9",
-    "langchain-cohere>=0.2.4",
+    "msgspec>=0.19.0",
     "tavily-python>=0.5.0",
     "pydantic>=2.10.6",
     "pydantic-settings>=2.7.1",
@@ -29,7 +24,11 @@ dependencies = [
     "yfinance>=0.2.35",
     "pandas>=2.0.0",
     "numpy>=1.24.0",
-    "nano-vectordb>=0.0.4.3"
+    "arxiv>=2.1.3",
+    "langchain-chroma>=0.2.2",
+    "pypdf>=5.3.0",
+    "langchain-community>=0.3.17",
+    "PyMuPDF>=1.22.5,<1.25.0"
 ]
 
 

@@ -27,6 +27,7 @@ from datetime import datetime
 from agent.interview_graph.financial.graph import financial_app
 from agent.interview_graph.general.graph import general_app
 from agent.interview_graph.market.graph import market_app
+from agent.interview_graph.research.graph import research_app
 
 from agent.interview_graph.utils import (
     calculate_confidence_score,
@@ -35,7 +36,7 @@ from agent.interview_graph.utils import (
 )
 
 def classify_question(state: MessagesState):
-    """Classify if the question is financial, market, or general."""
+    """Classify if the question is financial, market, general, or research."""
     messages = state.get("messages", [])
     if not messages:
         return "general_question"
@@ -48,7 +49,21 @@ def classify_question(state: MessagesState):
     last_message = messages[-1].content if messages else ""
 
     # Classify the question
-    system_message = SystemMessage(content="""Classify this question into one of these categories. Be very specific in distinguishing between financial and market questions:
+    system_message = SystemMessage(content="""Classify this question into one of these categories:
+
+RESEARCH questions focus on:
+- Requests for research papers, academic articles, or scientific publications
+- Questions asking for literature or papers on a specific topic
+- Queries about academic research in any field
+- Questions containing phrases like "research papers", "papers about", "articles on", "studies about"
+- Scientific discoveries and innovations from academic literature
+- Technical papers and methodologies
+- Research trends and developments
+- Academic literature reviews
+- Scientific methodologies
+- Research findings and implications
+- Academic contributions
+- Experimental results and analysis
 
 FINANCIAL questions focus on:
 - Stock prices, technical analysis, and trading
@@ -73,7 +88,7 @@ MARKET questions focus on:
 - Supply chain and distribution analysis
 
 GENERAL questions:
-- Any question not specifically about financial metrics or market analysis
+- Any question not specifically about research papers, financial metrics, or market analysis
 - General knowledge, facts, history
 - Technology explanations
 - Company history or background
@@ -81,17 +96,33 @@ GENERAL questions:
 - News and current events
 - How-to questions
 
-Return EXACTLY one of these words: 'financial_question', 'market_question', or 'general_question'""")
+Return EXACTLY one of these words: 'financial_question', 'market_question', 'research_question', or 'general_question'""")
     
     classification = llm.invoke([system_message, HumanMessage(content=last_message)])
 
     return classification.content.strip()
 
+def calculate_confidence_score(state: MessagesState):
+    """Calculate a confidence score using numpy for testing purposes."""
+    messages = state.get("messages", [])
+    if not messages:
+        return 0.0
+    
+    # Simple test using numpy - create random confidence score
+    random_score = np.random.uniform(0.7, 1.0)
+    weighted_score = np.mean([random_score, 0.85])  # Combine with baseline
+    
+    return np.round(weighted_score, 2)
+
 def route_messages(state: MessagesState, name: str = "expert"):
-    """Route between financial, market, and general knowledge questions."""
+    """Route between financial, market, research, and general knowledge questions."""
     if not state["messages"]:
         return END
         
+    # Add confidence scoring
+    confidence = calculate_confidence_score(state)
+    state["confidence_score"] = confidence
+    
     # Classify the question
     question_type = classify_question(state)
     
@@ -100,6 +131,8 @@ def route_messages(state: MessagesState, name: str = "expert"):
         return "handle_financial"
     elif question_type == "market_question":
         return "handle_market"
+    elif question_type == "research_question":
+        return "handle_research"
     else:
         return "handle_general"
 
@@ -115,6 +148,10 @@ def handle_general(state: MessagesState, *, config: RunnableConfig = None):
     """Handle general knowledge questions using the general subgraph."""
     return general_app.invoke(state)
 
+def handle_research(state: MessagesState, *, config: RunnableConfig = None):
+    """Handle research questions using the research subgraph."""
+    return research_app.invoke(state)
+
 checkpointer = MemorySaver()
 
 router = StateGraph(MessagesState)
@@ -123,6 +160,7 @@ router = StateGraph(MessagesState)
 router.add_node("handle_financial", handle_financial)
 router.add_node("handle_market", handle_market)
 router.add_node("handle_general", handle_general)
+router.add_node("handle_research", handle_research)
 
 # Add conditional edges
 router.add_conditional_edges(
@@ -131,7 +169,8 @@ router.add_conditional_edges(
     {
         "handle_financial": "handle_financial",
         "handle_market": "handle_market",
-        "handle_general": "handle_general"
+        "handle_general": "handle_general",
+        "handle_research": "handle_research"
     }
 )
 
@@ -142,6 +181,7 @@ router.add_conditional_edges(
 router.add_edge("handle_financial", END)
 router.add_edge("handle_market", END)
 router.add_edge("handle_general", END)
+router.add_edge("handle_research", END)
 
 # Compile the graph
 graph = router.compile(checkpointer=checkpointer)
